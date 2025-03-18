@@ -51,15 +51,57 @@ export class DeviceInformationService {
       const service = await server.getPrimaryService(this.DEVICE_INFO_SERVICE);
       const characteristic = await service.getCharacteristic(this.MODEL_NUMBER_UUID);
       const value = await characteristic.readValue();
-
-      console.log('📌 char:', characteristic);
-      console.log('📌 Model Number obtido:', value);
-      return new TextDecoder().decode(value);
+  
+      const decoder = new TextDecoder('utf-8');
+      const modelNumber = decoder.decode(value.buffer);
+  
+      console.log('📌 Model Number obtido:', modelNumber);
+      return modelNumber;
     } catch (error) {
       console.error('Erro ao obter Model Number:', error);
       return 'Indisponível';
     }
   }
+  async getAllDeviceInformation(device: BluetoothDevice): Promise<any> {
+    console.log('🔍 Buscando informações do dispositivo:', device);
+    const DEVICE_INFO_SERVICE = 'device_information';
+    const characteristicsUUIDs = {
+      modelNumber: '00002a24-0000-1000-8000-00805f9b34fb',
+      serialNumber: '00002a25-0000-1000-8000-00805f9b34fb',
+      firmwareRevision: '00002a26-0000-1000-8000-00805f9b34fb',
+      hardwareRevision: '00002a27-0000-1000-8000-00805f9b34fb',
+      softwareRevision: '00002a28-0000-1000-8000-00805f9b34fb',
+      manufacturerName: '00002a29-0000-1000-8000-00805f9b34fb',
+    };
+  
+    const decoder = new TextDecoder('utf-8');
+    const deviceInfo: { [key: string]: string } = {};
+  
+    try {
+      const server = await device.gatt!.connect();
+      const service = await server.getPrimaryService(DEVICE_INFO_SERVICE);
+  
+      for (const [key, uuid] of Object.entries(characteristicsUUIDs)) {
+        try {
+          const characteristic = await service.getCharacteristic(uuid);
+          const value = await characteristic.readValue();
+          deviceInfo[key] = decoder.decode(value.buffer);
+        } catch (charError) {
+          deviceInfo[key] = 'Não disponível';
+          console.warn(`⚠️ Característica ${key} não disponível.`);
+        }
+      }
+  
+      console.log('✅ Device Info Completo:', deviceInfo);
+      return deviceInfo;
+  
+    } catch (error) {
+      console.error('Erro ao buscar informações do dispositivo:', error);
+      throw error;
+    }
+  }
+  
+  
 
   private decodeString(value: DataView): string {
     const decoder = new TextDecoder('utf-8');
